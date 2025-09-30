@@ -1,0 +1,5 @@
+{
+  "name": "Copy of Gerador de Imagens em Lote",
+  "description": "Um aplicativo para gerar lotes de imagens com uma identidade visual consistente usando Gemini. Defina um estilo base, forneça uma lista de temas e gere várias imagens para cada tema, todas compartilhando a mesma estética.",
+  "requestFramePermissions": []
+}
