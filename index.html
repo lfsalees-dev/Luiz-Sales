@@ -1,32 +1,1068 @@
-
-<!DOCTYPE html>
-<html lang="pt-br">
+<!doctype html>
+<html lang="pt-BR">
 <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Gerador de Imagens em Lote</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/FileSaver.js/2.0.0/FileSaver.min.js"></script>
-    <style>
-      body {
-        -webkit-font-smoothing: antialiased;
-        -moz-osx-font-smoothing: grayscale;
-      }
-    </style>
-<script type="importmap">
-{
-  "imports": {
-    "react/": "https://aistudiocdn.com/react@^19.1.1/",
-    "react": "https://aistudiocdn.com/react@^19.1.1",
-    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.21.0",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.1.1/"
-  }
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Magnific — Calculadora de Custo</title>
+<style>
+:root {
+  --bg:#f5f5f3; --card:#fff; --text:#121212; --muted:#6b6b67;
+  --line:#deded8; --soft:#efefea; --accent:#111; --good:#0b7a4b;
 }
-</script>
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--text)}
+.container{max-width:1180px;margin:0 auto;padding:32px 20px 60px}
+header{display:flex;justify-content:space-between;gap:24px;align-items:flex-end;margin-bottom:24px}
+h1{font-size:clamp(28px,4vw,48px);letter-spacing:-.04em;margin:0 0 8px}
+.subtitle{color:var(--muted);max-width:760px;line-height:1.5}
+.badge{background:#111;color:white;padding:8px 12px;border-radius:999px;font-size:12px;white-space:nowrap}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:20px;padding:20px}
+.card h2{font-size:16px;margin:0 0 16px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.stat{background:var(--soft);border-radius:14px;padding:14px}
+.stat .label{font-size:12px;color:var(--muted);margin-bottom:7px}
+.stat .value{font-size:22px;font-weight:700;letter-spacing:-.03em}
+.controls{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.control{display:flex;flex-direction:column;gap:7px}
+label{font-size:12px;font-weight:700;color:var(--muted)}
+select,input{width:100%;height:44px;border:1px solid var(--line);border-radius:12px;background:#fff;padding:0 12px;font:inherit}
+input[type=number]{appearance:textfield}
+.tabs{display:flex;gap:8px;background:var(--soft);padding:6px;border-radius:14px;margin-bottom:16px}
+.tab{flex:1;border:0;background:transparent;padding:11px;border-radius:10px;font-weight:700;cursor:pointer}
+.tab.active{background:#111;color:#fff}
+.result{margin-top:16px;border:1px solid var(--line);border-radius:16px;padding:18px}
+.result-main{display:grid;grid-template-columns:1.2fr 1fr 1fr;gap:12px}
+.result .big{font-size:34px;font-weight:800;letter-spacing:-.04em}
+.result .small{font-size:12px;color:var(--muted);margin-top:4px}
+.row{display:flex;justify-content:space-between;gap:16px;padding:10px 0;border-bottom:1px solid var(--line)}
+.row:last-child{border-bottom:0}
+.note{margin-top:16px;font-size:12px;color:var(--muted);line-height:1.5}
+.source{font-size:11px;color:var(--muted);margin-top:18px}
+.hidden{display:none!important}
+@media(max-width:820px) {
+  .grid{grid-template-columns:1fr}
+  .stats{grid-template-columns:1fr}
+  .controls{grid-template-columns:1fr}
+  .result-main{grid-template-columns:1fr}
+  header{align-items:flex-start;flex-direction:column}
+}
+</style>
 </head>
-<body class="bg-slate-900 text-slate-200">
-    <div id="root"></div>
-    <script type="module" src="/index.tsx"></script>
+<body>
+<div class="container">
+<header>
+  <div>
+    <h1>Calculadora Magnific</h1>
+    <div class="subtitle">Estime o custo em reais de imagens e vídeos usando a franquia anual da sua assinatura. Todos os valores de consumo dos modelos abaixo são baseados na tabela oficial de créditos do Magnific.</div>
+  </div>
+  <div class="badge">BRL • crédito baseado</div>
+</header>
+
+<div class="grid">
+  <section class="card">
+    <h2>1. Base da assinatura</h2>
+    <div class="controls">
+      <div class="control">
+        <label>Valor anual (R$)</label>
+        <input id="annualCost" type="number" min="0" step="0.01" value="10000">
+      </div>
+      <div class="control">
+        <label>Créditos / tokens anuais</label>
+        <input id="annualCredits" type="number" min="1" step="1" value="3300000">
+      </div>
+    </div>
+    <div class="stats" style="margin-top:14px">
+      <div class="stat"><div class="label">R$/crédito</div><div class="value" id="costPerCredit">—</div></div>
+      <div class="stat"><div class="label">R$/1.000 créditos</div><div class="value" id="costPer1000">—</div></div>
+      <div class="stat"><div class="label">Créditos restantes</div><div class="value" id="remainingCredits">—</div></div>
+    </div>
+    <div class="note">Você pode alterar esses dois campos a qualquer momento para simular outro contrato, plano ou orçamento interno.</div>
+  </section>
+
+  <section class="card">
+    <h2>2. Estimativa de produção</h2>
+    <div class="tabs">
+      <button class="tab active" data-tab="video">Vídeo</button>
+      <button class="tab" data-tab="image">Imagem</button>
+    </div>
+
+    <div id="videoPanel">
+      <div class="controls">
+        <div class="control">
+          <label>Modelo</label>
+          <select id="videoModel"></select>
+        </div>
+        <div class="control">
+          <label>Resolução</label>
+          <select id="videoResolution"></select>
+        </div>
+        <div class="control">
+          <label>Duração (segundos)</label>
+          <input id="videoDuration" type="number" min="0.1" step="0.5" value="15">
+        </div>
+        <div class="control">
+          <label>Quantidade de gerações</label>
+          <input id="videoQty" type="number" min="1" step="1" value="1">
+        </div>
+      </div>
+      <div class="result">
+        <div class="result-main">
+          <div><div class="small">Custo por geração</div><div class="big" id="videoCost">—</div></div>
+          <div><div class="small">Custo por segundo</div><div class="big" id="videoPerSec">—</div></div>
+          <div><div class="small">Consumo</div><div class="big" id="videoCredits">—</div></div>
+        </div>
+        <div class="row"><span>Custo total</span><strong id="videoTotal">—</strong></div>
+        <div class="row"><span>Créditos totais consumidos</span><strong id="videoTotalCredits">—</strong></div>
+        <div class="row"><span>Percentual da franquia</span><strong id="videoPercent">—</strong></div>
+      </div>
+    </div>
+
+    <div id="imagePanel" class="hidden">
+      <div class="controls">
+        <div class="control">
+          <label>Modelo</label>
+          <select id="imageModel"></select>
+        </div>
+        <div class="control">
+          <label>Variante / resolução</label>
+          <select id="imageResolution"></select>
+        </div>
+        <div class="control">
+          <label>Quantidade de gerações</label>
+          <input id="imageQty" type="number" min="1" step="1" value="1">
+        </div>
+      </div>
+      <div class="result">
+        <div class="result-main">
+          <div><div class="small">Custo por imagem</div><div class="big" id="imageCost">—</div></div>
+          <div><div class="small">Créditos / imagem</div><div class="big" id="imageCredits">—</div></div>
+          <div><div class="small">R$/100 imagens</div><div class="big" id="image100">—</div></div>
+        </div>
+        <div class="row"><span>Custo total</span><strong id="imageTotal">—</strong></div>
+        <div class="row"><span>Créditos totais consumidos</span><strong id="imageTotalCredits">—</strong></div>
+        <div class="row"><span>Percentual da franquia</span><strong id="imagePercent">—</strong></div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<section class="card" style="margin-top:16px">
+  <h2>Referência rápida</h2>
+  <div class="stats">
+    <div class="stat"><div class="label">Seu exemplo • 15s</div><div class="value" id="known15">R$ 35,76</div><div class="small">11,8K tokens/credits informados por você</div></div>
+    <div class="stat"><div class="label">Seu exemplo • 30s</div><div class="value" id="known30">R$ 71,82</div><div class="small">23,7K tokens/credits informados por você</div></div>
+    <div class="stat"><div class="label">Parâmetro médio</div><div class="value" id="knownRate">R$ 2,39/s</div><div class="small">coerente entre seus dois exemplos</div></div>
+  </div>
+  <div class="note">Esses três números são uma referência interna sua e não são substituídos pela tabela oficial de créditos dos modelos. O cálculo oficial do simulador usa o consumo publicado pelo Magnific.</div>
+</section>
+
+<div class="source">Fonte dos consumos: documentação oficial do Magnific — AI Video Generator: Credits & Usage; AI Image Generator: Credits & Usage. Os preços da sua assinatura de R$ 10.000/ano e 3,3M de créditos foram tratados como parâmetros fornecidos por você.</div>
+</div>
+
+<script>
+const DATA = {
+  "account": {
+    "annualCostBRL": 10000,
+    "annualCredits": 3300000,
+    "label": "Assinatura anual"
+  },
+  "videoModels": [
+    {
+      "name": "Gemini Omni Flash 1.1",
+      "resolutions": {
+        "360p": 55,
+        "720p": 160,
+        "1080p": 240,
+        "4K": 480
+      }
+    },
+    {
+      "name": "Google Veo 2 (Deprecated)",
+      "resolutions": {
+        "720p": 200
+      }
+    },
+    {
+      "name": "Google Veo 3 (Deprecated)",
+      "resolutions": {
+        "720p": 200
+      }
+    },
+    {
+      "name": "Google Veo 3 Fast (Deprecated)",
+      "resolutions": {
+        "720p": 100,
+        "1080p": 100
+      }
+    },
+    {
+      "name": "Google Veo 3.1",
+      "resolutions": {
+        "720p": 200,
+        "1080p": 200,
+        "4K": 340
+      }
+    },
+    {
+      "name": "Google Veo 3.1 Fast",
+      "resolutions": {
+        "720p": 100,
+        "1080p": 100,
+        "4K": 270
+      }
+    },
+    {
+      "name": "Google Veo 3.1 Lite",
+      "resolutions": {
+        "720p": 40,
+        "1080p": 40
+      }
+    },
+    {
+      "name": "Grok",
+      "resolutions": {
+        "480p": 80,
+        "720p": 80
+      }
+    },
+    {
+      "name": "Grok Imagine 1.5",
+      "resolutions": {
+        "480p": 160,
+        "720p": 280
+      }
+    },
+    {
+      "name": "Flux 3 Video I2V",
+      "resolutions": {
+        "Draft": 80,
+        "720p": 340,
+        "1080p": 550
+      }
+    },
+    {
+      "name": "Flux 3 Video V2V",
+      "resolutions": {
+        "Draft": 120,
+        "720p": 850,
+        "1080p": 1100
+      }
+    },
+    {
+      "name": "Happy Horse",
+      "resolutions": {
+        "720p": 165,
+        "1080p": 280
+      }
+    },
+    {
+      "name": "Happy Horse 1.1",
+      "resolutions": {
+        "720p": 165,
+        "1080p": 280
+      }
+    },
+    {
+      "name": "Happy Horse Edit",
+      "resolutions": {
+        "720p": 55,
+        "1080p": 95
+      }
+    },
+    {
+      "name": "Kling 2.1",
+      "resolutions": {
+        "720p": 55,
+        "1080p": 95
+      }
+    },
+    {
+      "name": "Kling 2.1 Master",
+      "resolutions": {
+        "1080p": 280
+      }
+    },
+    {
+      "name": "Kling 2.5",
+      "resolutions": {
+        "720p": 28,
+        "1080p": 65
+      }
+    },
+    {
+      "name": "Kling 2.6",
+      "resolutions": {
+        "1080p": 45
+      }
+    },
+    {
+      "name": "Kling 2.6 Motion Control",
+      "resolutions": {
+        "720p": 65,
+        "1080p": 110
+      }
+    },
+    {
+      "name": "Kling 3.0",
+      "resolutions": {
+        "720p": 70,
+        "1080p": 90,
+        "4K": 400
+      }
+    },
+    {
+      "name": "Kling 3.0 Motion Control",
+      "resolutions": {
+        "720p": 110,
+        "1080p": 150
+      }
+    },
+    {
+      "name": "Kling 3.0 Omni",
+      "resolutions": {
+        "720p": 70,
+        "1080p": 95,
+        "4K": 400
+      }
+    },
+    {
+      "name": "Kling O1",
+      "resolutions": {
+        "720p": 75,
+        "1080p": 100
+      }
+    },
+    {
+      "name": "Kling 3.0 Turbo",
+      "resolutions": {
+        "720p": 210,
+        "1080p": 260
+      }
+    },
+    {
+      "name": "LTX 2 Fast",
+      "resolutions": {
+        "1080p": 80,
+        "1440p": 160,
+        "2160p": 320
+      }
+    },
+    {
+      "name": "LTX 2 Pro",
+      "resolutions": {
+        "1080p": 120,
+        "1440p": 230,
+        "2160p": 480
+      }
+    },
+    {
+      "name": "MiniMax Hailuo 02",
+      "resolutions": {
+        "512p": 10,
+        "768p": 35,
+        "1080p": 120
+      }
+    },
+    {
+      "name": "MiniMax Hailuo 2.3",
+      "resolutions": {
+        "768p": 25,
+        "1080p": 40
+      }
+    },
+    {
+      "name": "MiniMax Hailuo 2.3 Fast",
+      "resolutions": {
+        "768p": 25,
+        "1080p": 43
+      }
+    },
+    {
+      "name": "MiniMax Live Illustrations",
+      "resolutions": {
+        "720p": 120
+      }
+    },
+    {
+      "name": "Omni Human 1.5",
+      "resolutions": {
+        "—": 180
+      }
+    },
+    {
+      "name": "OpenAI Sora 2",
+      "resolutions": {
+        "720p": 150
+      }
+    },
+    {
+      "name": "OpenAI Sora 2 Pro",
+      "resolutions": {
+        "720p": 450,
+        "1024p": 750,
+        "1080p": 1100
+      }
+    },
+    {
+      "name": "PixVerse 5.5",
+      "resolutions": {
+        "360p": 100,
+        "540p": 100,
+        "720p": 120,
+        "1080p": 200
+      }
+    },
+    {
+      "name": "PixVerse 6",
+      "resolutions": {
+        "360p": 100,
+        "540p": 100,
+        "720p": 120,
+        "1080p": 200
+      }
+    },
+    {
+      "name": "Runway Act Two",
+      "resolutions": {
+        "720p": 100
+      }
+    },
+    {
+      "name": "Runway Gen 4",
+      "resolutions": {
+        "720p": 100
+      }
+    },
+    {
+      "name": "Runway Gen-4.5",
+      "resolutions": {
+        "720p": 220
+      }
+    },
+    {
+      "name": "Seedance 1.5 Pro",
+      "resolutions": {
+        "Draft": 15,
+        "480p": 45,
+        "720p": 100,
+        "1080p": 110
+      }
+    },
+    {
+      "name": "Seedance 2.0",
+      "resolutions": {
+        "480p": 145,
+        "720p": 280,
+        "1080p": 700,
+        "4K": 1400
+      }
+    },
+    {
+      "name": "Seedance 2.0 Fast",
+      "resolutions": {
+        "480p": 120,
+        "720p": 235
+      }
+    },
+    {
+      "name": "Seedance 2 Mini",
+      "resolutions": {
+        "480p": 70,
+        "720p": 140
+      }
+    },
+    {
+      "name": "Seedance 2.5",
+      "resolutions": {
+        "480p": 200,
+        "720p": 440,
+        "1080p": 1100
+      }
+    },
+    {
+      "name": "Veed Fabric 1.0",
+      "resolutions": {
+        "480p": 140,
+        "780p": 260
+      }
+    },
+    {
+      "name": "Veed Fabric 1.0 Fast",
+      "resolutions": {
+        "480p": 180,
+        "780p": 350
+      }
+    },
+    {
+      "name": "Veed Lip Sync 2.0",
+      "resolutions": {
+        "—": 140
+      }
+    },
+    {
+      "name": "Wan 2.2",
+      "resolutions": {
+        "480p": 16,
+        "580p": 16,
+        "780p": 32
+      }
+    },
+    {
+      "name": "Wan 2.2 Animate Move",
+      "resolutions": {
+        "480p": 200,
+        "580p": 300,
+        "780p": 400
+      }
+    },
+    {
+      "name": "Wan 2.5",
+      "resolutions": {
+        "480p": 100,
+        "780p": 200,
+        "1080p": 300
+      }
+    },
+    {
+      "name": "Wan 2.6",
+      "resolutions": {
+        "780p": 200,
+        "1080p": 300
+      }
+    },
+    {
+      "name": "Wan 2.7",
+      "resolutions": {
+        "780p": 130,
+        "1080p": 200
+      }
+    },
+    {
+      "name": "Wan 3.0",
+      "resolutions": {
+        "480p": 60,
+        "780p": 120,
+        "1080p": 240
+      }
+    },
+    {
+      "name": "Wan 3.0 PRIME",
+      "resolutions": {
+        "480p": 100,
+        "780p": 200,
+        "1080p": 400
+      }
+    }
+  ],
+  "imageModels": [
+    {
+      "name": "Cinematic 1-2K/4K",
+      "resolutions": {
+        "1-2K": 75,
+        "4K": 150
+      }
+    },
+    {
+      "name": "Flux.1 Fast",
+      "resolutions": {
+        "default": 5
+      }
+    },
+    {
+      "name": "Flux.1",
+      "resolutions": {
+        "default": 10
+      }
+    },
+    {
+      "name": "Flux.1 with Style Reference",
+      "resolutions": {
+        "default": 80
+      }
+    },
+    {
+      "name": "Flux.1 Realism",
+      "resolutions": {
+        "default": 40
+      }
+    },
+    {
+      "name": "Flux.1.1",
+      "resolutions": {
+        "default": 50
+      }
+    },
+    {
+      "name": "Flux.2 Flex",
+      "resolutions": {
+        "default": 80,
+        "high": 280
+      }
+    },
+    {
+      "name": "Flux.2 Pro",
+      "resolutions": {
+        "default": 50,
+        "high": 175
+      }
+    },
+    {
+      "name": "Flux.2 Max",
+      "resolutions": {
+        "default": 195,
+        "high": 715
+      }
+    },
+    {
+      "name": "Flux.1 Kontext Pro",
+      "resolutions": {
+        "default": 70
+      }
+    },
+    {
+      "name": "Flux.1 Kontext Max",
+      "resolutions": {
+        "default": 150
+      }
+    },
+    {
+      "name": "Flux Klein",
+      "resolutions": {
+        "low": 10,
+        "high": 45
+      }
+    },
+    {
+      "name": "Mystic 1.0",
+      "resolutions": {
+        "default": 45
+      }
+    },
+    {
+      "name": "Mystic 1.0 with Style Reference",
+      "resolutions": {
+        "default": 100
+      }
+    },
+    {
+      "name": "Mystic 2.5",
+      "resolutions": {
+        "default": 50
+      }
+    },
+    {
+      "name": "Mystic 2.5 with Style Reference",
+      "resolutions": {
+        "default": 100
+      }
+    },
+    {
+      "name": "New Mystic 2.5 Flexible",
+      "resolutions": {
+        "default": 80
+      }
+    },
+    {
+      "name": "Mystic 2.5 Fluid",
+      "resolutions": {
+        "default": 80
+      }
+    },
+    {
+      "name": "Classic Fast",
+      "resolutions": {
+        "default": 1
+      }
+    },
+    {
+      "name": "Classic",
+      "resolutions": {
+        "default": 5
+      }
+    },
+    {
+      "name": "Google Imagen 3",
+      "resolutions": {
+        "default": 50
+      }
+    },
+    {
+      "name": "Google Imagen 4 Fast",
+      "resolutions": {
+        "default": 50
+      }
+    },
+    {
+      "name": "Google Imagen 4",
+      "resolutions": {
+        "default": 100
+      }
+    },
+    {
+      "name": "Google Imagen 4 Ultra",
+      "resolutions": {
+        "default": 150
+      }
+    },
+    {
+      "name": "Google Nano Banana",
+      "resolutions": {
+        "default": 120
+      }
+    },
+    {
+      "name": "Google Nano Banana Pro",
+      "resolutions": {
+        "1K": 75,
+        "2K": 75,
+        "4K": 150
+      }
+    },
+    {
+      "name": "Google Nano Banana 2",
+      "resolutions": {
+        "1K": 75,
+        "2K": 75,
+        "4K": 150
+      }
+    },
+    {
+      "name": "Google Nano Banana 2 Lite",
+      "resolutions": {
+        "default": 60
+      }
+    },
+    {
+      "name": "GPT",
+      "resolutions": {
+        "default": 150
+      }
+    },
+    {
+      "name": "GPT 1.5 Medium",
+      "resolutions": {
+        "default": 150
+      }
+    },
+    {
+      "name": "GPT 1.5 High",
+      "resolutions": {
+        "default": 500
+      }
+    },
+    {
+      "name": "GPT 2 Low",
+      "resolutions": {
+        "1K": 25,
+        "2K": 50,
+        "4K": 75
+      }
+    },
+    {
+      "name": "GPT 2 Medium",
+      "resolutions": {
+        "1K": 200,
+        "2K": 400,
+        "4K": 600
+      }
+    },
+    {
+      "name": "GPT 2 High",
+      "resolutions": {
+        "1K": 700,
+        "2K": 1400,
+        "4K": 2100
+      }
+    },
+    {
+      "name": "GPT 2 Mini",
+      "resolutions": {
+        "low": 15,
+        "high": 1050
+      }
+    },
+    {
+      "name": "Grok Image Edit",
+      "resolutions": {
+        "default": 75
+      }
+    },
+    {
+      "name": "Grok Text to image",
+      "resolutions": {
+        "default": 70
+      }
+    },
+    {
+      "name": "Ideogram",
+      "resolutions": {
+        "default": 60
+      }
+    },
+    {
+      "name": "Ideogram 3 with Image Reference",
+      "resolutions": {
+        "default": 200
+      }
+    },
+    {
+      "name": "Ideogram 4",
+      "resolutions": {
+        "low": 120,
+        "high": 200
+      }
+    },
+    {
+      "name": "P-image Ideogram 1K / 2K",
+      "resolutions": {
+        "low": 5,
+        "high": 44
+      }
+    },
+    {
+      "name": "Krea 2 Medium",
+      "resolutions": {
+        "default": 80
+      }
+    },
+    {
+      "name": "Krea 2 High",
+      "resolutions": {
+        "default": 160
+      }
+    },
+    {
+      "name": "Luma Uni-1.1 Mid",
+      "resolutions": {
+        "default": 140
+      }
+    },
+    {
+      "name": "Luma Uni-1.1 Max",
+      "resolutions": {
+        "default": 350
+      }
+    },
+    {
+      "name": "Magnific One",
+      "resolutions": {
+        "low": 130,
+        "high": 1050
+      }
+    },
+    {
+      "name": "MAI Image 2.5",
+      "resolutions": {
+        "low": 120,
+        "high": 200
+      }
+    },
+    {
+      "name": "Recraft V4",
+      "resolutions": {
+        "default": 60
+      }
+    },
+    {
+      "name": "Recraft V4 Pro",
+      "resolutions": {
+        "default": 175
+      }
+    },
+    {
+      "name": "Recraft V4.1",
+      "resolutions": {
+        "low": 60,
+        "high": 175
+      }
+    },
+    {
+      "name": "Runway",
+      "resolutions": {
+        "default": 200
+      }
+    },
+    {
+      "name": "Seedream 4",
+      "resolutions": {
+        "default": 50
+      }
+    },
+    {
+      "name": "Seedream 4 4K",
+      "resolutions": {
+        "default": 50
+      }
+    },
+    {
+      "name": "Seedream 4.5",
+      "resolutions": {
+        "default": 50
+      }
+    },
+    {
+      "name": "Seedream 5 Lite",
+      "resolutions": {
+        "default": 50
+      }
+    },
+    {
+      "name": "Seedream 5 Pro",
+      "resolutions": {
+        "1.5K": 75,
+        "2K": 150
+      }
+    },
+    {
+      "name": "Z- Image",
+      "resolutions": {
+        "default": 5
+      }
+    },
+    {
+      "name": "Qwen",
+      "resolutions": {
+        "low": 30,
+        "high": 50
+      }
+    },
+    {
+      "name": "Qwen Image 3.0",
+      "resolutions": {
+        "default": 50
+      }
+    }
+  ]
+};
+
+const $ = (id) => document.getElementById(id);
+const brl = (n) => new Intl.NumberFormat('pt-BR', {style:'currency',currency:'BRL'}).format(n);
+const num = (n) => new Intl.NumberFormat('pt-BR', {maximumFractionDigits:2}).format(n);
+
+let lastVideoCredits = 0, lastImageCredits = 0;
+
+function costPerCredit() {
+  const cost = Number($('annualCost').value) || 0;
+  const credits = Number($('annualCredits').value) || 1;
+  return cost / credits;
+}
+function updateBase() {
+  const c = costPerCredit();
+  $('costPerCredit').textContent = c.toLocaleString('pt-BR', {minimumFractionDigits:6,maximumFractionDigits:6});
+  $('costPer1000').textContent = brl(c * 1000);
+  const used = lastVideoCredits + lastImageCredits;
+  const total = Number($('annualCredits').value) || 0;
+  $('remainingCredits').textContent = num(Math.max(0, total - used));
+  calcVideo();
+  calcImage();
+}
+
+function fillSelect(select, items, firstKey) {
+  select.innerHTML = '';
+  items.forEach((item, idx) => {
+    const opt = document.createElement('option');
+    opt.value = item.name;
+    opt.textContent = item.name;
+    select.appendChild(opt);
+  });
+  if (firstKey) select.value = firstKey;
+}
+
+function getVideoModel() {
+  return DATA.videoModels.find(m => m.name === $('videoModel').value) || DATA.videoModels[0];
+}
+function getImageModel() {
+  return DATA.imageModels.find(m => m.name === $('imageModel').value) || DATA.imageModels[0];
+}
+
+function refillVideoRes() {
+  const m = getVideoModel();
+  const sel = $('videoResolution');
+  sel.innerHTML = '';
+  Object.entries(m.resolutions).forEach(([r, credits]) => {
+    const opt = document.createElement('option');
+    opt.value = r; opt.textContent = `${r} — ${credits} cr/s`;
+    sel.appendChild(opt);
+  });
+  calcVideo();
+}
+function refillImageRes() {
+  const m = getImageModel();
+  const sel = $('imageResolution');
+  sel.innerHTML = '';
+  Object.entries(m.resolutions).forEach(([r, credits]) => {
+    const opt = document.createElement('option');
+    opt.value = r; opt.textContent = `${r === 'default' ? 'Padrão' : r} — ${credits} cr`;
+    sel.appendChild(opt);
+  });
+  calcImage();
+}
+
+function calcVideo() {
+  if (!$('videoModel').value) return;
+  const m = getVideoModel();
+  const creditsPerSecond = Number(m.resolutions[$('videoResolution').value]) || 0;
+  const duration = Math.max(0, Number($('videoDuration').value) || 0);
+  const qty = Math.max(1, Number($('videoQty').value) || 1);
+  const creditsPerGen = creditsPerSecond * duration;
+  const totalCredits = creditsPerGen * qty;
+  const cpc = costPerCredit();
+  lastVideoCredits = totalCredits;
+  $('videoCost').textContent = brl(creditsPerGen * cpc);
+  $('videoPerSec').textContent = brl(creditsPerSecond * cpc);
+  $('videoCredits').textContent = num(creditsPerGen) + ' cr';
+  $('videoTotal').textContent = brl(totalCredits * cpc);
+  $('videoTotalCredits').textContent = num(totalCredits);
+  $('videoPercent').textContent = num((totalCredits / (Number($('annualCredits').value)||1))*100) + '%';
+  const used = lastVideoCredits + lastImageCredits;
+  const total = Number($('annualCredits').value)||0;
+  $('remainingCredits').textContent = num(Math.max(0,total-used));
+}
+
+function calcImage() {
+  if (!$('imageModel').value) return;
+  const m = getImageModel();
+  const credits = Number(m.resolutions[$('imageResolution').value]) || 0;
+  const qty = Math.max(1, Number($('imageQty').value) || 1);
+  const cpc = costPerCredit();
+  const totalCredits = credits * qty;
+  lastImageCredits = totalCredits;
+  $('imageCost').textContent = brl(credits * cpc);
+  $('imageCredits').textContent = num(credits);
+  $('image100').textContent = brl(credits * cpc * 100);
+  $('imageTotal').textContent = brl(totalCredits * cpc);
+  $('imageTotalCredits').textContent = num(totalCredits);
+  $('imagePercent').textContent = num((totalCredits / (Number($('annualCredits').value)||1))*100) + '%';
+  const used = lastVideoCredits + lastImageCredits;
+  const total = Number($('annualCredits').value)||0;
+  $('remainingCredits').textContent = num(Math.max(0,total-used));
+}
+
+fillSelect($('videoModel'), DATA.videoModels);
+fillSelect($('imageModel'), DATA.imageModels);
+refillVideoRes();
+refillImageRes();
+
+$('videoModel').addEventListener('change', refillVideoRes);
+$('videoResolution').addEventListener('change', calcVideo);
+$('videoDuration').addEventListener('input', calcVideo);
+$('videoQty').addEventListener('input', calcVideo);
+$('imageModel').addEventListener('change', refillImageRes);
+$('imageResolution').addEventListener('change', calcImage);
+$('imageQty').addEventListener('input', calcImage);
+$('annualCost').addEventListener('input', updateBase);
+$('annualCredits').addEventListener('input', updateBase);
+
+document.querySelectorAll('.tab').forEach(btn => btn.addEventListener('click', () => {
+  document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  const tab = btn.dataset.tab;
+  $('videoPanel').classList.toggle('hidden', tab !== 'video');
+  $('imagePanel').classList.toggle('hidden', tab !== 'image');
+}));
+
+updateBase();
+</script>
 </body>
 </html>
